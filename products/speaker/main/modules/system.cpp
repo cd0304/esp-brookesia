@@ -27,6 +27,7 @@
 #include "imu_gesture.h"
 #include "touch_sensor.h"
 #include "led_indicator.h"
+#include "device_info.h"
 
 constexpr const char *FUNCTION_OPEN_APP_THREAD_NAME               = "open_app";
 constexpr int         FUNCTION_OPEN_APP_THREAD_STACK_SIZE         = 20 * 1024;
@@ -642,6 +643,9 @@ static void touch_btn_event_cb(void *button_handle, void *usr_data)
         led_indicator_stop(led_indicator_handle, BLINK_TOUCH_PRESS_DOWN);
         break;
     case BUTTON_SINGLE_CLICK:
+        // 增加触摸计数
+        increment_touch_count();
+        
         if (_agent->hasChatState(Agent::ChatState::ChatStateStarted)) {
             if (_agent->isChatState(Agent::ChatState::ChatStateSlept)) {
                 ESP_UTILS_LOGI("Chat Wake up");

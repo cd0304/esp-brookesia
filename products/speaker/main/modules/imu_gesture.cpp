@@ -12,6 +12,7 @@
 #include "bsp/esp-bsp.h"
 #include "imu_gesture.h"
 #include "common/common.h"
+#include "device_info.h"
 
 static const char *TAG = "IMUGesture";
 
@@ -64,6 +65,8 @@ void IMUGesture::gestureThread(void *arg)
         bmi2_get_int_status(&int_status, bmi_handle);
         if (int_status & BMI270_ANY_MOT_STATUS_MASK) {
             ESP_LOGI(TAG, "Any-motion interrupt is generated");
+            // 增加晕倒计数（晃动检测）
+            increment_faint_count();
             gesture_signal(ANY_MOTION);
             continue;
         }

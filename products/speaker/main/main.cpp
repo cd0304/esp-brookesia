@@ -18,6 +18,9 @@
 #include "modules/system.hpp"
 #include "modules/file_system.hpp"
 #include "modules/led_indicator.h"
+#include "modules/device_info.h"
+#include "modules/status_report.h"
+#include "modules/status_config.h"
 
 constexpr bool EXAMPLE_SHOW_MEM_INFO = false;
 
@@ -34,6 +37,16 @@ extern "C" void app_main()
     }
     assert(audio_init()                         && "Initialize audio failed");
     assert(system_init()                        && "Initialize system failed");
+    
+    // 初始化设备信息模块
+    assert(device_info_init()                   && "Initialize device info failed");
+    
+    // 初始化状态上报模块
+    assert(status_report_init()                 && "Initialize status report failed");
+    
+    // 启动状态上报
+    status_report_start(STATUS_REPORT_SERVER_URL);
+    status_report_set_interval(STATUS_REPORT_INTERVAL_SECONDS);
 
     if constexpr (EXAMPLE_SHOW_MEM_INFO) {
         esp_utils::thread_config_guard thread_config({
