@@ -76,6 +76,7 @@ class FunctionDefinition {
 public:
     using CallbackThreadConfig = esp_utils::ThreadConfig;
     using Callback = std::function<void(const std::vector<FunctionParameter>&)>;
+    using ResultCallback = std::function<std::string(const std::vector<FunctionParameter>&)>;
 
     FunctionDefinition(const std::string &name, const std::string &description);
 
@@ -83,6 +84,7 @@ public:
         const std::string &name, const std::string &description, FunctionParameter::ValueType type, bool required = true
     );
     void setCallback(Callback callback, std::optional<CallbackThreadConfig> thread_config = std::nullopt);
+    void setResultCallback(ResultCallback result_callback, std::optional<CallbackThreadConfig> thread_config = std::nullopt);
     bool invoke(const cJSON *args) const;
     std::string name() const
     {
@@ -95,6 +97,7 @@ private:
     std::string description_;
     std::vector<FunctionParameter> parameters_;
     Callback callback_;
+    ResultCallback result_callback_;
     std::optional<CallbackThreadConfig> thread_config_;
 };
 

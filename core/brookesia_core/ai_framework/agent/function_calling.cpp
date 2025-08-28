@@ -6,6 +6,7 @@
 #include "boost/thread.hpp"
 #include "private/esp_brookesia_ai_agent_utils.hpp"
 #include "function_calling.hpp"
+#include "coze_chat_app.hpp"
 
 #define THREAD_STACK_SIZE_BIG   (10 * 1024)
 
@@ -88,11 +89,23 @@ void FunctionDefinition::setCallback(Callback callback, std::optional<CallbackTh
     thread_config_ = thread_config;
 }
 
+void FunctionDefinition::setResultCallback(ResultCallback result_callback, std::optional<CallbackThreadConfig> thread_config)
+{
+#if ESP_UTILS_CONF_LOG_LEVEL == ESP_UTILS_LOG_LEVEL_DEBUG
+    if (thread_config != std::nullopt) {
+        thread_config->dump();
+    }
+#endif
+
+    result_callback_ = result_callback;
+    thread_config_ = thread_config;
+}
+
 bool FunctionDefinition::invoke(const cJSON *args) const
 {
     ESP_UTILS_LOGD("Invoking function: %s", name_.c_str());
-    if (!callback_) {
-        ESP_UTILS_LOGW("Function %s has no callback", name_.c_str());
+    if (!callback_ && !result_callback_) {
+        ESP_UTILS_LOGW("Function %s has no callback or result callback", name_.c_str());
         return false;
     }
 
@@ -137,14 +150,44 @@ bool FunctionDefinition::invoke(const cJSON *args) const
         }
     }
 
-    if (thread_config_ != std::nullopt) {
-        esp_utils::thread_config_guard thread_config(*thread_config_);
-        boost::thread([this, params]() {
-            ESP_UTILS_LOG_TRACE_GUARD();
+    if (result_callback_) {
+        // Use ResultCallback for functions that need to return results
+        if (thread_config_ != std::nullopt) {
+            esp_utils::thread_config_guard thread_config(*thread_config_);
+            boost::thread([this, params]() {
+                ESP_UTILS_LOG_TRACE_GUARD();
+                std::string result = result_callback_(params);
+                // Submit result to Coze platform
+                std::string tool_call_id = get_current_tool_call_id();
+                if (!tool_call_id.empty()) {
+                    esp_err_t submit_ret = coze_chat_submit_tool_outputs(tool_call_id, result);
+                    if (submit_ret != ESP_OK) {
+                        ESP_UTILS_LOGE("Failed to submit tool outputs for function: %s", name_.c_str());
+                    }
+                }
+            }).detach();
+        } else {
+            std::string result = result_callback_(params);
+            // Submit result to Coze platform
+            std::string tool_call_id = get_current_tool_call_id();
+            if (!tool_call_id.empty()) {
+                esp_err_t submit_ret = coze_chat_submit_tool_outputs(tool_call_id, result);
+                if (submit_ret != ESP_OK) {
+                    ESP_UTILS_LOGE("Failed to submit tool outputs for function: %s", name_.c_str());
+                }
+            }
+        }
+    } else if (callback_) {
+        // Use traditional Callback for functions that don't return results
+        if (thread_config_ != std::nullopt) {
+            esp_utils::thread_config_guard thread_config(*thread_config_);
+            boost::thread([this, params]() {
+                ESP_UTILS_LOG_TRACE_GUARD();
+                callback_(params);
+            }).detach();
+        } else {
             callback_(params);
-        }).detach();
-    } else {
-        callback_(params);
+        }
     }
 
     return true;
@@ -328,6 +371,7 @@ next:
 
         // Call the callback function
         bool result = functions_[it->second].invoke(arguments);
+        
         return result;
     }
 

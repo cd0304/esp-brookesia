@@ -65,3 +65,17 @@ void coze_chat_app_wakeup(void);
 void coze_chat_app_sleep(void);
 
 void coze_chat_app_interrupt(void);
+
+/**
+ * @brief Submit tool execution results to Coze platform
+ * @param tool_call_id The tool call ID from the original request
+ * @param output The execution result in JSON format
+ * @return ESP_OK on success, ESP_FAIL on failure
+ */
+esp_err_t coze_chat_submit_tool_outputs(const std::string &tool_call_id, const std::string &output);
+
+/**
+ * @brief Get current tool call ID for result submission
+ * @return Current tool call ID string
+ */
+std::string get_current_tool_call_id();

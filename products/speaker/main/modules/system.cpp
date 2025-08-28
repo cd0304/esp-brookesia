@@ -360,6 +360,44 @@ bool system_init()
     }));
     FunctionDefinitionList::requestInstance().addFunction(setBrightness);
 
+    FunctionDefinition getDeviceId("get_deviceid", "Get the unique device ID of this ESP32-S3 device. 获取设备的唯一标识符");
+    getDeviceId.setResultCallback([](const std::vector<FunctionParameter> &params) -> std::string {
+        ESP_UTILS_LOG_TRACE_GUARD();
+        
+        const char* device_id = get_device_id();
+        if (device_id) {
+            ESP_UTILS_LOGI("Device ID requested: %s", device_id);
+            
+            // 创建包含设备ID的JSON结果
+            cJSON *result = cJSON_CreateObject();
+            if (!result) {
+                ESP_UTILS_LOGE("Failed to create result JSON");
+                return "{\"error\": \"Failed to create result JSON\"}";
+            }
+            
+            cJSON_AddStringToObject(result, "status", "success");
+            cJSON_AddStringToObject(result, "device_id", device_id);
+            
+            char *json_str = cJSON_PrintUnformatted(result);
+            if (!json_str) {
+                ESP_UTILS_LOGE("Failed to print result JSON");
+                cJSON_Delete(result);
+                return "{\"error\": \"Failed to print result JSON\"}";
+            }
+            
+            std::string result_str = json_str;
+            free(json_str);
+            cJSON_Delete(result);
+            
+            ESP_UTILS_LOGI("Device ID result: %s", result_str.c_str());
+            return result_str;
+        } else {
+            ESP_UTILS_LOGE("Failed to get device ID");
+            return "{\"status\": \"failed\", \"error\": \"Failed to get device ID\"}";
+        }
+    });
+    FunctionDefinitionList::requestInstance().addFunction(getDeviceId);
+
     /* Process quick settings */
     speaker->getDisplay().getQuickSettings().connectEventSignal([ = ](QuickSettings::EventData event_data) {
         ESP_UTILS_LOG_TRACE_GUARD();

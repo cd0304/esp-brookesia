@@ -58,6 +58,15 @@ struct coze_chat_t {
 static struct coze_chat_t coze_chat = {};
 static const char *coze_authorization_url = "https://api.coze.cn/api/permission/oauth2/token";
 
+// Global variables to track current chat and tool call IDs
+static std::string current_chat_id;
+static std::string current_tool_call_id;
+
+// Access function for function_calling.cpp to get current tool_call_id
+std::string get_current_tool_call_id() {
+    return current_tool_call_id;
+}
+
 boost::signals2::signal<void(const std::string &emoji)> coze_chat_emoji_signal;
 boost::signals2::signal<void(bool is_speaking)> coze_chat_speaking_signal;
 boost::signals2::signal<void(void)> coze_chat_response_signal;
@@ -243,6 +252,14 @@ static void audio_event_callback(esp_coze_chat_event_t event, char *data, void *
             return;
         }
 
+        // Extract chat_id for later use in tool output submission (from data.id field)
+        cJSON *chat_id_item = cJSON_GetObjectItem(data_json, "id");
+        if (chat_id_item && cJSON_IsString(chat_id_item)) {
+            current_chat_id = chat_id_item->valuestring;
+            ESP_UTILS_LOGI("Current chat ID: %s", current_chat_id.c_str());
+        } else {
+            ESP_UTILS_LOGE("Failed to extract chat ID from data");
+        }
 
         cJSON *required_action = cJSON_GetObjectItem(data_json, "required_action");
         if (required_action == NULL) {
@@ -270,6 +287,13 @@ static void audio_event_callback(esp_coze_chat_event_t event, char *data, void *
             ESP_UTILS_LOGE("No first tool call found in tool_calls");
             cJSON_Delete(json_data);
             return;
+        }
+
+        // Extract tool_call_id from the tool call
+        cJSON *tool_call_id_item = cJSON_GetObjectItem(first_tool_call, "id");
+        if (tool_call_id_item && cJSON_IsString(tool_call_id_item)) {
+            current_tool_call_id = tool_call_id_item->valuestring;
+            ESP_UTILS_LOGI("Current tool call ID: %s", current_tool_call_id.c_str());
         }
 
         char *function_str = cJSON_Print(first_tool_call);
@@ -693,4 +717,99 @@ void coze_chat_app_interrupt(void)
             boost::this_thread::sleep_for(boost::chrono::milliseconds(COZE_INTERRUPT_INTERVAL_MS));
         }
     }).detach();
+}
+
+/**
+ * @brief Submit tool execution results to Coze platform
+ * @param tool_call_id The tool call ID from the original request
+ * @param output The execution result in JSON format
+ * @return ESP_OK on success, ESP_FAIL on failure
+ */
+esp_err_t coze_chat_submit_tool_outputs(const std::string &tool_call_id, const std::string &output)
+{
+    ESP_UTILS_LOG_TRACE_GUARD();
+    
+    if (current_chat_id.empty()) {
+        ESP_UTILS_LOGE("No current chat ID available");
+        return ESP_FAIL;
+    }
+    
+    if (tool_call_id.empty()) {
+        ESP_UTILS_LOGE("Tool call ID is empty");
+        return ESP_FAIL;
+    }
+    
+    // Create the submit_tool_outputs JSON structure
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        ESP_UTILS_LOGE("Failed to create JSON root object");
+        return ESP_FAIL;
+    }
+    
+    // Add event_type
+    cJSON_AddStringToObject(root, "event_type", "conversation.chat.submit_tool_outputs");
+    
+    // Add data object
+    cJSON *data = cJSON_CreateObject();
+    if (!data) {
+        ESP_UTILS_LOGE("Failed to create data object");
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+    cJSON_AddItemToObject(root, "data", data);
+    
+    // Add chat_id
+    cJSON_AddStringToObject(data, "chat_id", current_chat_id.c_str());
+    
+    // Add tool_outputs array
+    cJSON *tool_outputs = cJSON_CreateArray();
+    if (!tool_outputs) {
+        ESP_UTILS_LOGE("Failed to create tool_outputs array");
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+    cJSON_AddItemToObject(data, "tool_outputs", tool_outputs);
+    
+    // Add tool output object
+    cJSON *tool_output = cJSON_CreateObject();
+    if (!tool_output) {
+        ESP_UTILS_LOGE("Failed to create tool_output object");
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+    cJSON_AddItemToArray(tool_outputs, tool_output);
+    
+    // Add tool_call_id and output
+    cJSON_AddStringToObject(tool_output, "tool_call_id", tool_call_id.c_str());
+    cJSON_AddStringToObject(tool_output, "output", output.c_str());
+    
+    // Convert to JSON string
+    char *json_str = cJSON_PrintUnformatted(root);
+    if (!json_str) {
+        ESP_UTILS_LOGE("Failed to print JSON");
+        cJSON_Delete(root);
+        return ESP_FAIL;
+    }
+    
+    ESP_UTILS_LOGI("Submitting tool outputs: %s", json_str);
+    
+    // Send the result via websocket using esp_coze_chat_send_customer_data
+    esp_err_t ret = ESP_FAIL;
+    if (coze_chat.chat && coze_chat.websocket_connected) {
+        // Use esp_coze_chat_send_customer_data to send the tool outputs
+        ESP_UTILS_LOGI("Sending tool outputs via esp_coze_chat_send_customer_data: %s", json_str);
+        ret = esp_coze_chat_send_customer_data(coze_chat.chat, json_str);
+        if (ret == ESP_OK) {
+            ESP_UTILS_LOGI("Tool outputs sent successfully via websocket");
+        } else {
+            ESP_UTILS_LOGE("Failed to send tool outputs via websocket: %s", esp_err_to_name(ret));
+        }
+    } else {
+        ESP_UTILS_LOGE("Chat not available or websocket not connected");
+    }
+    
+    free(json_str);
+    cJSON_Delete(root);
+    
+    return ret;
 }
