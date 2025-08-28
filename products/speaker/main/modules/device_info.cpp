@@ -10,6 +10,8 @@
 #include "freertos/task.h"
 #include "cJSON.h"
 #include "esp_random.h"
+#include "esp_mac.h"
+#include "esp_efuse.h"
 #include <string.h>
 
 #ifdef ESP_UTILS_LOG_TAG
@@ -36,6 +38,23 @@ static device_status_t g_device_status = {0};
 static bool g_initialized = false;
 static esp_timer_handle_t g_continue_time_timer = NULL;
 
+// 生成基于硬件唯一标识的固定设备ID
+static bool generate_unique_device_id(char* device_id, size_t max_len)
+{
+    uint8_t mac[6];
+    esp_err_t ret = esp_efuse_mac_get_default(mac);
+    if (ret != ESP_OK) {
+        ESP_UTILS_LOGE("Failed to get MAC address: %s", esp_err_to_name(ret));
+        return false;
+    }
+    
+    // 使用MAC地址生成唯一且固定的设备ID
+    snprintf(device_id, max_len, "esp32s3_pet_%02x%02x%02x%02x%02x%02x", 
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    
+    return true;
+}
+
 // 继续时间定时器回调
 static void continue_time_timer_callback(void* arg)
 {
@@ -54,8 +73,11 @@ bool device_info_init()
     // 初始化设备状态
     memset(&g_device_status, 0, sizeof(g_device_status));
     
-    // 生成设备ID
-    snprintf(g_device_status.device_id, sizeof(g_device_status.device_id), "esp32s3_pet_%08lx", (unsigned long)esp_random());
+    // 生成基于硬件唯一标识的固定设备ID
+    if (!generate_unique_device_id(g_device_status.device_id, sizeof(g_device_status.device_id))) {
+        ESP_UTILS_LOGE("Failed to generate unique device ID");
+        return false;
+    }
     
     // 设置启动时间
     g_device_status.start_time = esp_timer_get_time() / 1000000; // 转换为秒
@@ -245,5 +267,29 @@ void test_get_device_info_result()
         free(json);
     } else {
         ESP_UTILS_LOGE("Failed to get device info JSON");
+    }
+}
+
+// 测试设备ID一致性（用于验证重启后ID是否保持不变）
+void test_device_id_consistency()
+{
+    const char* current_id = get_device_id();
+    ESP_UTILS_LOGI("Current Device ID: %s", current_id);
+    
+    // 再次生成一个设备ID来验证一致性
+    char test_id[64];
+    uint8_t mac[6];
+    esp_err_t ret = esp_efuse_mac_get_default(mac);
+    if (ret == ESP_OK) {
+        snprintf(test_id, sizeof(test_id), "esp32s3_pet_%02x%02x%02x%02x%02x%02x", 
+                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        ESP_UTILS_LOGI("Test generated ID: %s", test_id);
+        if (strcmp(current_id, test_id) == 0) {
+            ESP_UTILS_LOGI("✓ Device ID consistency test PASSED");
+        } else {
+            ESP_UTILS_LOGE("✗ Device ID consistency test FAILED");
+        }
+    } else {
+        ESP_UTILS_LOGE("Failed to generate test device ID: %s", esp_err_to_name(ret));
     }
 }

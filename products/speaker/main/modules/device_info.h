@@ -81,6 +81,11 @@ void test_device_info_functions();
  */
 void test_get_device_info_result();
 
+/**
+ * @brief Test device ID consistency (for verifying ID remains same after restart)
+ */
+void test_device_id_consistency();
+
 #ifdef __cplusplus
 }
 #endif
