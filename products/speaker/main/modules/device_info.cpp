@@ -34,7 +34,19 @@ typedef struct {
     uint64_t start_time;         // 设备启动时间戳
 } device_status_t;
 
+// 上次上报时的状态（用于计算增量）
+typedef struct {
+    uint32_t last_continue_time;
+    uint32_t last_touch_num;
+    uint32_t last_faint_num;
+    uint32_t last_cleanup_feces_num;
+    uint32_t last_walking_num;
+    uint32_t last_feeding_num;
+    uint32_t last_fitness_calories;
+} last_report_status_t;
+
 static device_status_t g_device_status = {0};
+static last_report_status_t g_last_report_status = {0};
 static bool g_initialized = false;
 static esp_timer_handle_t g_continue_time_timer = NULL;
 
@@ -105,8 +117,48 @@ bool device_info_init()
     return true;
 }
 
-// 获取设备状态JSON字符串
+// 获取设备状态增量数据JSON字符串（用于上报）
 char* get_device_info_json()
+{
+    if (!g_initialized) {
+        ESP_UTILS_LOGE("Device info module not initialized");
+        return NULL;
+    }
+    
+    cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        ESP_UTILS_LOGE("Failed to create JSON object");
+        return NULL;
+    }
+    
+    // 计算增量数据
+    uint32_t delta_continue_time = g_device_status.continue_time - g_last_report_status.last_continue_time;
+    uint32_t delta_touch_num = g_device_status.touch_num - g_last_report_status.last_touch_num;
+    uint32_t delta_faint_num = g_device_status.faint_num - g_last_report_status.last_faint_num;
+    uint32_t delta_cleanup_feces_num = g_device_status.cleanup_feces_num - g_last_report_status.last_cleanup_feces_num;
+    uint32_t delta_walking_num = g_device_status.walking_num - g_last_report_status.last_walking_num;
+    uint32_t delta_feeding_num = g_device_status.feeding_num - g_last_report_status.last_feeding_num;
+    uint32_t delta_fitness_calories = g_device_status.fitness_calories - g_last_report_status.last_fitness_calories;
+    
+    cJSON_AddStringToObject(root, "device_id", g_device_status.device_id);
+    cJSON_AddNumberToObject(root, "delta_continue_time", delta_continue_time);
+    cJSON_AddNumberToObject(root, "delta_touch_num", delta_touch_num);
+    cJSON_AddNumberToObject(root, "delta_faint_num", delta_faint_num);
+    cJSON_AddBoolToObject(root, "is_have_feces", g_device_status.is_have_feces);
+    cJSON_AddNumberToObject(root, "delta_cleanup_feces_num", delta_cleanup_feces_num);
+    cJSON_AddNumberToObject(root, "delta_walking_num", delta_walking_num);
+    cJSON_AddNumberToObject(root, "delta_feeding_num", delta_feeding_num);
+    cJSON_AddNumberToObject(root, "hunger_level", g_device_status.hunger_level);
+    cJSON_AddNumberToObject(root, "delta_fitness_calories", delta_fitness_calories);
+    
+    char* json_str = cJSON_Print(root);
+    cJSON_Delete(root);
+    
+    return json_str;
+}
+
+// 获取设备完整状态JSON字符串（用于调试）
+char* get_device_full_status_json()
 {
     if (!g_initialized) {
         ESP_UTILS_LOGE("Device info module not initialized");
@@ -237,6 +289,25 @@ void set_have_feces(bool have_feces)
     ESP_UTILS_LOGI("Have feces set to %s", have_feces ? "true" : "false");
 }
 
+// 重置增量数据（上报成功后调用）
+void reset_delta_data()
+{
+    if (!g_initialized) {
+        return;
+    }
+    
+    // 更新上次上报的状态为当前状态
+    g_last_report_status.last_continue_time = g_device_status.continue_time;
+    g_last_report_status.last_touch_num = g_device_status.touch_num;
+    g_last_report_status.last_faint_num = g_device_status.faint_num;
+    g_last_report_status.last_cleanup_feces_num = g_device_status.cleanup_feces_num;
+    g_last_report_status.last_walking_num = g_device_status.walking_num;
+    g_last_report_status.last_feeding_num = g_device_status.feeding_num;
+    g_last_report_status.last_fitness_calories = g_device_status.fitness_calories;
+    
+    ESP_UTILS_LOGI("Delta data reset for next report period");
+}
+
 // 测试函数
 void test_device_info_functions()
 {
@@ -253,8 +324,14 @@ void test_device_info_functions()
     
     char* json = get_device_info_json();
     if (json) {
-        ESP_UTILS_LOGI("Device info JSON: %s", json);
+        ESP_UTILS_LOGI("Device delta info JSON: %s", json);
         free(json);
+    }
+    
+    char* full_json = get_device_full_status_json();
+    if (full_json) {
+        ESP_UTILS_LOGI("Device full status JSON: %s", full_json);
+        free(full_json);
     }
 }
 

@@ -17,10 +17,16 @@ extern "C" {
 bool device_info_init();
 
 /**
- * @brief Get device info as JSON string
+ * @brief Get device info delta data as JSON string (for reporting)
  * @return JSON string (must be freed by caller), NULL if failed
  */
 char* get_device_info_json();
+
+/**
+ * @brief Get device full status as JSON string (for debugging)
+ * @return JSON string (must be freed by caller), NULL if failed
+ */
+char* get_device_full_status_json();
 
 /**
  * @brief Get device ID
@@ -70,6 +76,11 @@ void add_fitness_calories(int calories);
  * @param have_feces Whether device has feces
  */
 void set_have_feces(bool have_feces);
+
+/**
+ * @brief Reset delta data after successful report
+ */
+void reset_delta_data();
 
 /**
  * @brief Test function for device info (for testing purposes)

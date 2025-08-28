@@ -210,6 +210,9 @@ bool status_report_send_now()
         return false;
     }
     
+    // 上报成功后重置增量数据
+    reset_delta_data();
+    
     ESP_UTILS_LOGI("Status report sent successfully");
     return true;
 }
