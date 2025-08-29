@@ -13,6 +13,7 @@
 #include "imu_gesture.h"
 #include "common/common.h"
 #include "device_info.h"
+#include "status_report.h"
 
 static const char *TAG = "IMUGesture";
 
@@ -67,6 +68,13 @@ void IMUGesture::gestureThread(void *arg)
             ESP_LOGI(TAG, "Any-motion interrupt is generated");
             // 增加晕倒计数（晃动检测）
             increment_faint_count();
+            
+            // 立即上报眩晕事件
+            if (status_report_is_connected()) {
+                status_report_send_now();
+                ESP_LOGI(TAG, "📤 Immediate status report sent after faint event");
+            }
+            
             gesture_signal(ANY_MOTION);
             continue;
         }

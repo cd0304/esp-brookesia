@@ -114,6 +114,10 @@ static void handle_websocket_command(char* data, int data_len)
         send_command_response(command, true, "Feces generated successfully");
         ESP_UTILS_LOGI("✅ Command executed: generate_feces");
         
+        // 立即上报状态变化
+        status_report_send_now();
+        ESP_UTILS_LOGI("📤 Immediate status report sent after generate_feces");
+        
     } else if (strcmp(command, "set_hunger_level") == 0) {
         // 设置饥饿程度命令
         cJSON *level_item = cJSON_GetObjectItem(json, "level");
@@ -131,6 +135,10 @@ static void handle_websocket_command(char* data, int data_len)
                 snprintf(success_msg, sizeof(success_msg), "Hunger level set to %d successfully", level);
                 send_command_response(command, true, success_msg);
                 ESP_UTILS_LOGI("✅ Command executed: set_hunger_level to %d", level);
+                
+                // 立即上报状态变化
+                status_report_send_now();
+                ESP_UTILS_LOGI("📤 Immediate status report sent after set_hunger_level");
             }
         }
         
@@ -231,6 +239,7 @@ static void handle_websocket_command(char* data, int data_len)
                     {"sleep_xian_zhe_yang_lo", AI_Buddy::AudioType::SleepXianZheYangLo},
                     {"invalid_config", AI_Buddy::AudioType::InvalidConfig},
                     {"coze_error_insufficient_credits", AI_Buddy::AudioType::CozeErrorInsufficientCreditsBalance},
+                    {"meowing", AI_Buddy::AudioType::Meowing},
                 };
                 
                 // 首先尝试匹配系统音频类型

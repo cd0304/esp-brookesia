@@ -28,6 +28,7 @@
 #include "touch_sensor.h"
 #include "led_indicator.h"
 #include "device_info.h"
+#include "status_report.h"
 
 constexpr const char *FUNCTION_OPEN_APP_THREAD_NAME               = "open_app";
 constexpr int         FUNCTION_OPEN_APP_THREAD_STACK_SIZE         = 20 * 1024;
@@ -683,6 +684,12 @@ static void touch_btn_event_cb(void *button_handle, void *usr_data)
     case BUTTON_SINGLE_CLICK:
         // 增加触摸计数
         increment_touch_count();
+        
+        // 立即上报触摸事件
+        if (status_report_is_connected()) {
+            status_report_send_now();
+            ESP_UTILS_LOGI("📤 Immediate status report sent after touch event");
+        }
         
         if (_agent->hasChatState(Agent::ChatState::ChatStateStarted)) {
             if (_agent->isChatState(Agent::ChatState::ChatStateSlept)) {

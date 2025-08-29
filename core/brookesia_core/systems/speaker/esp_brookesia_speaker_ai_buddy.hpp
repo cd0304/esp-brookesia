@@ -102,6 +102,7 @@ public:
         SleepXianZheYangLo,
         InvalidConfig,
         CozeErrorInsufficientCreditsBalance,
+        Meowing,
         Max,
     };
     struct AudioEvent {
@@ -213,6 +214,7 @@ private:
         {AudioType::SleepXianZheYangLo,   {"file://spiffs/sleep_xian_zhe_yang_lo.mp3", 3 * 1000}},
         {AudioType::InvalidConfig,        {"file://spiffs/invalid_config_file.mp3", 5 * 1000}},
         {AudioType::CozeErrorInsufficientCreditsBalance, {"file://spiffs/coze_error_credits.mp3", 7 * 1000}},
+        {AudioType::Meowing,              {"file://spiffs/meowing.mp3", 3 * 1000}},
     };
     inline static RandomAudios _response_audios = {
         {0.25, AudioType::ResponseLaiLo},
