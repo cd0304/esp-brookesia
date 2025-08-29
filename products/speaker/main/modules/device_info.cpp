@@ -50,19 +50,20 @@ static last_report_status_t g_last_report_status = {0};
 static bool g_initialized = false;
 static esp_timer_handle_t g_continue_time_timer = NULL;
 
-// 生成基于硬件唯一标识的固定设备ID
+// 生成基于硬件唯一标识的固定设备ID（与esp_brookesia_ai_agent.cpp格式一致）
 static bool generate_unique_device_id(char* device_id, size_t max_len)
 {
-    uint8_t mac[6];
+    uint8_t mac[6] = {0};
     esp_err_t ret = esp_efuse_mac_get_default(mac);
     if (ret != ESP_OK) {
         ESP_UTILS_LOGE("Failed to get MAC address: %s", esp_err_to_name(ret));
         return false;
     }
     
-    // 使用MAC地址生成唯一且固定的设备ID
-    snprintf(device_id, max_len, "esp32s3_pet_%02x%02x%02x%02x%02x%02x", 
-             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    // 使用与esp_brookesia_ai_agent.cpp一致的格式：ESP_XXXXXXXXXXXX
+    char mac_hex[13];
+    snprintf(mac_hex, sizeof(mac_hex), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    snprintf(device_id, max_len, "ESP_%s", mac_hex);
     
     return true;
 }
@@ -355,11 +356,12 @@ void test_device_id_consistency()
     
     // 再次生成一个设备ID来验证一致性
     char test_id[64];
-    uint8_t mac[6];
+    uint8_t mac[6] = {0};
     esp_err_t ret = esp_efuse_mac_get_default(mac);
     if (ret == ESP_OK) {
-        snprintf(test_id, sizeof(test_id), "esp32s3_pet_%02x%02x%02x%02x%02x%02x", 
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        char mac_hex[13];
+        snprintf(mac_hex, sizeof(mac_hex), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        snprintf(test_id, sizeof(test_id), "ESP_%s", mac_hex);
         ESP_UTILS_LOGI("Test generated ID: %s", test_id);
         if (strcmp(current_id, test_id) == 0) {
             ESP_UTILS_LOGI("✓ Device ID consistency test PASSED");

@@ -28,6 +28,7 @@
 #include "audio_processor.h"
 #include "function_calling.hpp"
 #include "coze_chat_app.hpp"
+#include "esp_mac.h"
 
 #define SPEAKING_TIMEOUT_MS         (2000)
 #define SPEAKING_MUTE_DELAY_MS      (2000)
@@ -625,9 +626,24 @@ esp_err_t coze_chat_app_start(const CozeChatAgentInfo &agent_info, const CozeCha
     ESP_UTILS_CHECK_FALSE_RETURN(ret == ESP_OK, ret, "esp_coze_chat_init failed(%s)", esp_err_to_name(ret));
 
     static auto func_call = FunctionDefinitionList::requestInstance().getJson();
+    
+    // 生成与esp_brookesia_ai_agent.cpp一致的设备ID格式
+    static std::string device_id;
+    if (device_id.empty()) {
+        uint8_t mac[6] = {0};
+        esp_err_t err = esp_efuse_mac_get_default(mac);
+        if (err == ESP_OK) {
+            char mac_hex[13];
+            snprintf(mac_hex, sizeof(mac_hex), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            device_id = "ESP_" + std::string(mac_hex);
+        } else {
+            device_id = "ESP_UNKNOWN";
+        }
+    }
 
     esp_coze_parameters_kv_t param[] = {
         {"func_call", const_cast<char *>(func_call.c_str())},
+        {"user_id", const_cast<char *>(device_id.c_str())},
         {NULL, NULL}
     };
     ret = esp_coze_set_chat_config_parameters(coze_chat.chat, param);
