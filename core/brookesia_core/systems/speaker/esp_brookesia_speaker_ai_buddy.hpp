@@ -35,18 +35,19 @@ public:
     };
     enum ExpressionIconType {
         ExpressionIconTypeNone = ai_framework::Expression::ICON_TYPE_NONE,
-        ExpressionIconSystemBrightnessDown = 0,
-        ExpressionIconSystemBrightnessUp,
-        ExpressionIconEmotionConfused,
-        ExpressionIconEmotionSleep,
-        ExpressionIconEmotionThinking,
-        ExpressionIconSystemInvalidFile,
-        ExpressionIconSystemServerConnected,
-        ExpressionIconSystemServerConnecting,
-        ExpressionIconSystemVolumeDown,
-        ExpressionIconSystemVolumeMute,
-        ExpressionIconSystemVolumeUp,
-        ExpressionIconSystemWifiDisconnected,
+        ExpressionIconSystemBrightnessDown = 0,     // 索引0
+        ExpressionIconSystemBrightnessUp,           // 索引1
+        ExpressionIconEmotionConfused,              // 索引2
+        ExpressionIconEmotionPoop,                  // 索引3 - 按资源文件顺序调整位置
+        ExpressionIconEmotionSleep,                 // 索引4
+        ExpressionIconEmotionThinking,              // 索引5
+        ExpressionIconSystemInvalidFile,            // 索引6
+        ExpressionIconSystemServerConnected,        // 索引7
+        ExpressionIconSystemServerConnecting,       // 索引8
+        ExpressionIconSystemVolumeDown,             // 索引9
+        ExpressionIconSystemVolumeMute,             // 索引10
+        ExpressionIconSystemVolumeUp,               // 索引11
+        ExpressionIconSystemWifiDisconnected,       // 索引12
     };
 
     AI_Buddy(const AI_Buddy &) = delete;
@@ -179,6 +180,7 @@ private:
         {"curious", std::make_pair(ExpressionEmotionFastBlink, ExpressionIconEmotionConfused)},
         {"dizzy", std::make_pair(ExpressionEmotionDizzy, ExpressionIconTypeNone)},
         {"blink", std::make_pair(ExpressionEmotionBlush, ExpressionIconTypeNone)},
+        {"pooping", std::make_pair(ExpressionEmotionSad, ExpressionIconEmotionPoop)},
     };
     inline static ai_framework::Expression::SystemIconMap _system_icon_map = {
         {"brightness_down", ExpressionIconSystemBrightnessDown},

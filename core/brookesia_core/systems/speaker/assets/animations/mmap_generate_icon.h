@@ -13,20 +13,21 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_ICON_FILES           12
-#define MMAP_ICON_CHECKSUM        0x1EA7
+#define MMAP_ICON_FILES           13
+#define MMAP_ICON_CHECKSUM        0xBFEA
 
 enum MMAP_ICON_LISTS {
     MMAP_ICON_ICON_BRIGHTNESS_DOWN_64_AAF = 0,        /*!< icon_brightness_down_64.aaf */
     MMAP_ICON_ICON_BRIGHTNESS_UP_64_AAF = 1,        /*!< icon_brightness_up_64.aaf */
     MMAP_ICON_ICON_EMOTION_CONFUSED_64_AAF = 2,        /*!< icon_emotion_confused_64.aaf */
-    MMAP_ICON_ICON_EMOTION_SLEEP_64_AAF = 3,        /*!< icon_emotion_sleep_64.aaf */
-    MMAP_ICON_ICON_EMOTION_THINKING_64_AAF = 4,        /*!< icon_emotion_thinking_64.aaf */
-    MMAP_ICON_ICON_INVALID_FILE_64_AAF = 5,        /*!< icon_invalid_file_64.aaf */
-    MMAP_ICON_ICON_SERVER_CONNECTED_64_AAF = 6,        /*!< icon_server_connected_64.aaf */
-    MMAP_ICON_ICON_SERVER_CONNECTING_64_AAF = 7,        /*!< icon_server_connecting_64.aaf */
-    MMAP_ICON_ICON_VOLUME_DOWN_64_AAF = 8,        /*!< icon_volume_down_64.aaf */
-    MMAP_ICON_ICON_VOLUME_MUTE_64_AAF = 9,        /*!< icon_volume_mute_64.aaf */
-    MMAP_ICON_ICON_VOLUME_UP_64_AAF = 10,        /*!< icon_volume_up_64.aaf */
-    MMAP_ICON_ICON_WIFI_DISCONNECT_64_AAF = 11,        /*!< icon_wifi_disconnect_64.aaf */
+    MMAP_ICON_ICON_EMOTION_POOP_64_AAF = 3,        /*!< icon_emotion_poop_64.aaf */
+    MMAP_ICON_ICON_EMOTION_SLEEP_64_AAF = 4,        /*!< icon_emotion_sleep_64.aaf */
+    MMAP_ICON_ICON_EMOTION_THINKING_64_AAF = 5,        /*!< icon_emotion_thinking_64.aaf */
+    MMAP_ICON_ICON_INVALID_FILE_64_AAF = 6,        /*!< icon_invalid_file_64.aaf */
+    MMAP_ICON_ICON_SERVER_CONNECTED_64_AAF = 7,        /*!< icon_server_connected_64.aaf */
+    MMAP_ICON_ICON_SERVER_CONNECTING_64_AAF = 8,        /*!< icon_server_connecting_64.aaf */
+    MMAP_ICON_ICON_VOLUME_DOWN_64_AAF = 9,        /*!< icon_volume_down_64.aaf */
+    MMAP_ICON_ICON_VOLUME_MUTE_64_AAF = 10,        /*!< icon_volume_mute_64.aaf */
+    MMAP_ICON_ICON_VOLUME_UP_64_AAF = 11,        /*!< icon_volume_up_64.aaf */
+    MMAP_ICON_ICON_WIFI_DISCONNECT_64_AAF = 12,        /*!< icon_wifi_disconnect_64.aaf */
 };
