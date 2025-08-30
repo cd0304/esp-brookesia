@@ -6,6 +6,9 @@
 #include "private/esp_brookesia_ai_expression_utils.hpp"
 #include "esp_brookesia_ai_expression.hpp"
 
+// 声明显示模块的饥饿状态设置函数
+extern "C" void display_set_hungry_state(bool is_hungry);
+
 namespace esp_brookesia::ai_framework {
 
 Expression::~Expression()
@@ -240,6 +243,15 @@ bool Expression::setEmoji(
     _last_emoji = emoji;
     _last_emotion_config = emotion_config;
     _last_icon_config = icon_config;
+
+    // 检测饥饿状态并通知显示模块
+    if (emoji == "hungry") {
+        display_set_hungry_state(true);
+        ESP_UTILS_LOGI("🍽️ Hungry state detected - feeding mode enabled");
+    } else if (emoji == "happy" || emoji == "neutral") {
+        display_set_hungry_state(false);
+        ESP_UTILS_LOGD("😊 Non-hungry state - feeding mode disabled");
+    }
 
     if (_emotion_player != nullptr && emotion_config.en) {
         auto emotion_type = it->second.first;

@@ -71,3 +71,4 @@ pytest_log/
 XUNIT_RESULT.xml
 
 .cache/
+.bin

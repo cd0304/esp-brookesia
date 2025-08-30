@@ -14,7 +14,7 @@
 #include "esp_mmap_assets.h"
 
 #define MMAP_ICON_FILES           15
-#define MMAP_ICON_CHECKSUM        0xA673
+#define MMAP_ICON_CHECKSUM        0x8351
 
 enum MMAP_ICON_LISTS {
     MMAP_ICON_ICON_BRIGHTNESS_DOWN_64_AAF = 0,        /*!< icon_brightness_down_64.aaf */

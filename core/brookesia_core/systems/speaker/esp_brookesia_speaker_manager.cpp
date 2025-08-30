@@ -22,6 +22,9 @@ using namespace esp_brookesia::gui;
 using namespace esp_brookesia::ai_framework;
 using namespace esp_brookesia::services;
 
+// Forward declaration for feeding functionality
+extern "C" void screen_click_event_cb(lv_event_t *e);
+
 namespace esp_brookesia::systems::speaker {
 
 constexpr int QUICK_SETTINGS_UPDATE_CLOCK_INTERVAL_MS  = 1000;
@@ -113,6 +116,14 @@ bool Manager::begin(void)
             "Process screen change failed"
         );
     }, LV_EVENT_LONG_PRESSED, this);
+    
+    // Add screen click event for feeding functionality
+    display.getDummyDrawMask()->addEventCallback([](lv_event_t *event) {
+        ESP_UTILS_LOG_TRACE_GUARD();
+        ESP_UTILS_LOGD("Screen clicked for feeding functionality");
+        screen_click_event_cb(event);
+    }, LV_EVENT_CLICKED, this);
+    ESP_UTILS_LOGI("Screen click event callback registered for feeding functionality");
     _draw_dummy_timer = std::make_unique<LvTimer>([this](void *) {
         ESP_UTILS_CHECK_FALSE_EXIT(
             this->processDisplayScreenChange(Screen::DRAW_DUMMY, nullptr),
