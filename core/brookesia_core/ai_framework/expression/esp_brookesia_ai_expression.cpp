@@ -33,18 +33,24 @@ bool Expression::begin(const ExpressionData &data, const EmojiMap *emoji_map, co
     });
 
     if (data.flags.enable_emotion) {
-        auto animation_num = data.emotion.data.getAnimationNum();
-        ESP_UTILS_CHECK_FALSE_RETURN(animation_num > 0, false, "Invalid emotion animation num");
+        auto emotion_animation_num = data.emotion.data.getAnimationNum();
+        ESP_UTILS_CHECK_FALSE_RETURN(emotion_animation_num > 0, false, "Invalid emotion animation num");
         ESP_UTILS_CHECK_NULL_RETURN(emoji_map, false, "Invalid emoji map");
+
+        // 获取图标动画数量用于验证emoji映射中的图标索引
+        auto icon_animation_num = data.flags.enable_icon ? data.icon.data.getAnimationNum() : 0;
 
         auto &emoji_map_tmp = *emoji_map;
         for (auto &[emoji, emotion_icon] : emoji_map_tmp) {
             ESP_UTILS_CHECK_VALUE_RETURN(
-                emotion_icon.first, EMOTION_TYPE_NONE, animation_num - 1, false, "Emotion index out of data range"
+                emotion_icon.first, EMOTION_TYPE_NONE, emotion_animation_num - 1, false, "Emotion index out of data range"
             );
-            ESP_UTILS_CHECK_VALUE_RETURN(
-                emotion_icon.second, EMOTION_TYPE_NONE, animation_num - 1, false, "Icon index out of data range"
-            );
+            // 只有当图标功能启用时才验证图标索引
+            if (data.flags.enable_icon && emotion_icon.second != ICON_TYPE_NONE) {
+                ESP_UTILS_CHECK_VALUE_RETURN(
+                    emotion_icon.second, ICON_TYPE_NONE, icon_animation_num - 1, false, "Icon index out of data range"
+                );
+            }
         }
 
         _emoji_map = emoji_map_tmp;

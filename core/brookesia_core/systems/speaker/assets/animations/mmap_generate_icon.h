@@ -13,8 +13,8 @@
 
 #include "esp_mmap_assets.h"
 
-#define MMAP_ICON_FILES           13
-#define MMAP_ICON_CHECKSUM        0xBFEA
+#define MMAP_ICON_FILES           15
+#define MMAP_ICON_CHECKSUM        0xA673
 
 enum MMAP_ICON_LISTS {
     MMAP_ICON_ICON_BRIGHTNESS_DOWN_64_AAF = 0,        /*!< icon_brightness_down_64.aaf */
@@ -30,4 +30,6 @@ enum MMAP_ICON_LISTS {
     MMAP_ICON_ICON_VOLUME_MUTE_64_AAF = 10,        /*!< icon_volume_mute_64.aaf */
     MMAP_ICON_ICON_VOLUME_UP_64_AAF = 11,        /*!< icon_volume_up_64.aaf */
     MMAP_ICON_ICON_WIFI_DISCONNECT_64_AAF = 12,        /*!< icon_wifi_disconnect_64.aaf */
+    MMAP_ICON_ICON_WW1_FEED_64_AAF = 13,        /*!< icon_ww1_feed_64.aaf */
+    MMAP_ICON_ICON_WW2_HUNGRY_64_AAF = 14,        /*!< icon_ww2_hungry_64.aaf */
 };

@@ -48,6 +48,8 @@ public:
         ExpressionIconSystemVolumeMute,             // 索引10
         ExpressionIconSystemVolumeUp,               // 索引11
         ExpressionIconSystemWifiDisconnected,       // 索引12
+        ExpressionIconIconWw1Feed,                  // 索引13
+        ExpressionIconIconWw2Hungry,                // 索引14
     };
 
     AI_Buddy(const AI_Buddy &) = delete;
@@ -182,6 +184,8 @@ private:
         {"dizzy", std::make_pair(ExpressionEmotionDizzy, ExpressionIconTypeNone)},
         {"blink", std::make_pair(ExpressionEmotionBlush, ExpressionIconTypeNone)},
         {"pooping", std::make_pair(ExpressionEmotionSad, ExpressionIconEmotionPoop)},
+        {"wandfood", std::make_pair(ExpressionEmotionHappy, ExpressionIconIconWw1Feed)},
+        {"hungry", std::make_pair(ExpressionEmotionSad, ExpressionIconIconWw2Hungry)},
     };
     inline static ai_framework::Expression::SystemIconMap _system_icon_map = {
         {"brightness_down", ExpressionIconSystemBrightnessDown},
