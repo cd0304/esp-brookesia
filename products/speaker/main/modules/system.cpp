@@ -29,6 +29,8 @@
 #include "led_indicator.h"
 #include "device_info.h"
 #include "status_report.h"
+#include "display.hpp"
+#include "agent/audio_processor.h"
 
 constexpr const char *FUNCTION_OPEN_APP_THREAD_NAME               = "open_app";
 constexpr int         FUNCTION_OPEN_APP_THREAD_STACK_SIZE         = 20 * 1024;
@@ -459,9 +461,59 @@ bool system_init()
     /* Bind imu gesture to expression */
     auto ai_buddy = AI_Buddy::requestInstance();
     ESP_UTILS_CHECK_NULL_RETURN(ai_buddy, false, "Failed to get ai buddy instance");
+    
+    // 静态变量用于防止连续触发
+    static uint32_t last_poop_clean_time = 0;
+    static const uint32_t POOP_CLEAN_COOLDOWN_MS = 3000; // 3秒冷却时间
+    
     imu_gesture.gesture_signal.connect([ai_buddy](IMUGesture::GestureType type) {
         if (type == IMUGesture::GestureType::ANY_MOTION) {
-            ESP_UTILS_CHECK_FALSE_EXIT(ai_buddy->expression.insertEmojiTemporary("dizzy", 2500), "Set emoji failed");
+            uint32_t current_time = esp_timer_get_time() / 1000; // 转换为毫秒
+            
+            // 检查是否处于拉粪状态
+            if (display_get_pooping_state()) {
+                // 检查冷却时间，防止重复触发
+                if (current_time - last_poop_clean_time >= POOP_CLEAN_COOLDOWN_MS) {
+                    ESP_UTILS_LOGI("💩 Shake detected during pooping - cleaning poop and showing happy!");
+                    
+                    // 记录清理时间
+                    last_poop_clean_time = current_time;
+                    
+                    // 立即关闭pooping状态，防止再次触发
+                    display_set_pooping_state(false);
+                    
+                    // 清理粪便，切换到快乐状态
+                    ESP_UTILS_CHECK_FALSE_EXIT(ai_buddy->expression.setEmoji("happy"), "Set emoji failed");
+                    
+                    // 播放喵叫声音
+                    ESP_UTILS_LOGI("🎵 Playing meowing sound for poop cleaning");
+                    ai_buddy->sendAudioEvent({AI_Buddy::AudioType::Meowing});
+                    
+                    // 增加粪便清理计数
+                    increment_cleanup_feces_count();
+                    
+                    // 立即上报粪便清理事件
+                    if (status_report_is_connected()) {
+                        status_report_send_now();
+                        ESP_UTILS_LOGI("📤 Immediate status report sent after poop cleaning event");
+                    }
+                } else {
+                    ESP_UTILS_LOGD("💩 Poop cleaning still in cooldown period, ignoring shake");
+                }
+            } else {
+                // 检查是否在粪便清理冷却期内，如果是则忽略眩晕动画
+                if (current_time - last_poop_clean_time < POOP_CLEAN_COOLDOWN_MS) {
+                    ESP_UTILS_LOGD("💫 Shake ignored - still in poop cleaning cooldown period");
+                } else {
+                    // 原来的逻辑：播放眩晕动画
+                    ESP_UTILS_LOGI("💫 Shake detected - showing dizzy animation");
+                    ESP_UTILS_CHECK_FALSE_EXIT(ai_buddy->expression.insertEmojiTemporary("dizzy", 2500), "Set emoji failed");
+                    
+                    // 播放愤怒的猫叫声音
+                    ESP_UTILS_LOGI("😾 Playing angry cat sound for dizzy state");
+                    audio_prompt_play_with_block("file://spiffs/cat_angry.mp3", 3000);
+                }
+            }
         }
     });
 

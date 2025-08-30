@@ -44,6 +44,11 @@ static struct {
     bool is_feeding_in_progress = false;
 } feeding_state;
 
+// 粪便状态全局变量
+static struct {
+    bool is_pooping_state = false;
+} poop_state;
+
 static bool draw_bitmap_with_lock(lv_disp_t *disp, int x_start, int y_start, int x_end, int y_end, const void *data);
 static bool clear_display(lv_disp_t *disp);
 extern "C" void screen_click_event_cb(lv_event_t *e);
@@ -349,4 +354,17 @@ extern "C" void display_set_hungry_state(bool is_hungry)
         // 如果不再饥饿，重置点击计数器
         reset_feeding_click_counter();
     }
+}
+
+// 设置拉粪状态的公共函数
+extern "C" void display_set_pooping_state(bool is_pooping)
+{
+    ESP_UTILS_LOGI("💩 Setting pooping state: %s", is_pooping ? "YES" : "NO");
+    poop_state.is_pooping_state = is_pooping;
+}
+
+// 获取拉粪状态的公共函数
+extern "C" bool display_get_pooping_state(void)
+{
+    return poop_state.is_pooping_state;
 }

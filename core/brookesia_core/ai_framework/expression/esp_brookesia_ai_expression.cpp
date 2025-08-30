@@ -8,6 +8,7 @@
 
 // 声明显示模块的饥饿状态设置函数
 extern "C" void display_set_hungry_state(bool is_hungry);
+extern "C" void display_set_pooping_state(bool is_pooping);
 
 namespace esp_brookesia::ai_framework {
 
@@ -251,6 +252,15 @@ bool Expression::setEmoji(
     } else if (emoji == "happy" || emoji == "neutral") {
         display_set_hungry_state(false);
         ESP_UTILS_LOGD("😊 Non-hungry state - feeding mode disabled");
+    }
+    
+    // 检测拉粪状态并通知显示模块
+    if (emoji == "pooping") {
+        display_set_pooping_state(true);
+        ESP_UTILS_LOGI("💩 Pooping state detected - shake-to-clean mode enabled");
+    } else if (emoji == "happy" || emoji == "neutral") {
+        display_set_pooping_state(false);
+        ESP_UTILS_LOGD("😊 Non-pooping state - shake-to-clean mode disabled");
     }
 
     if (_emotion_player != nullptr && emotion_config.en) {
