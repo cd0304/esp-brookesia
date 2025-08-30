@@ -685,24 +685,28 @@ static void touch_btn_event_cb(void *button_handle, void *usr_data)
         // 增加触摸计数
         increment_touch_count();
         
+        // 播放喵叫声音
+        ESP_UTILS_LOGI("Touch detected - Playing meowing sound");
+        ai_buddy->sendAudioEvent({AI_Buddy::AudioType::Meowing});
+        
         // 立即上报触摸事件
         if (status_report_is_connected()) {
             status_report_send_now();
             ESP_UTILS_LOGI("📤 Immediate status report sent after touch event");
         }
         
-        if (_agent->hasChatState(Agent::ChatState::ChatStateStarted)) {
-            if (_agent->isChatState(Agent::ChatState::ChatStateSlept)) {
-                ESP_UTILS_LOGI("Chat Wake up");
-                audio_gmf_trigger_wakeup();
-            } else if (ai_buddy->isSpeaking()) {
-                ESP_UTILS_LOGI("Chat interrupt");
-                coze_chat_response_signal();
-                coze_chat_app_interrupt();
-            }
-        } else {
-            ESP_UTILS_LOGI("Chat nothing to do");
-        }
+        // if (_agent->hasChatState(Agent::ChatState::ChatStateStarted)) {
+        //     if (_agent->isChatState(Agent::ChatState::ChatStateSlept)) {
+        //         ESP_UTILS_LOGI("Chat Wake up");
+        //         audio_gmf_trigger_wakeup();
+        //     } else if (ai_buddy->isSpeaking()) {
+        //         ESP_UTILS_LOGI("Chat interrupt");
+        //         coze_chat_response_signal();
+        //         coze_chat_app_interrupt();
+        //     }
+        // } else {
+        //     ESP_UTILS_LOGI("Chat nothing to do");
+        // }
         break;
     case BUTTON_LONG_PRESS_START:
         if (_agent->hasChatState(Agent::ChatState::ChatStateStarted) && !_agent->isChatState(Agent::ChatState::ChatStateSlept)) {

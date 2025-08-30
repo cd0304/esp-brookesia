@@ -19,10 +19,15 @@ extern "C" { // temporary solution for eliminate compilation errors
 #include "touch_slider_sensor.h"
 }
 #include "esp_brookesia_app_settings.hpp"
+#include "device_info.h"
+#include "status_report.h"
+extern "C" {
+#include "agent/audio_processor.h"
+}
 
 const static char *TAG = "Touch Sensor";
 
-#define TOUCH_SLIDER_ENABLED 0 // Disable touch slider for now
+#define TOUCH_SLIDER_ENABLED 1 // Enable touch slider for petting gestures
 
 static const uint32_t touch_channel_list[] = { // define touch channels
 #ifdef BSP_TOUCH_PAD1
@@ -78,68 +83,84 @@ static esp_err_t init_touch_button(void)
 
 
 #if TOUCH_SLIDER_ENABLED
-static int current_volume = 50;  // Default volume (0-100)
-// Touch gesture coordination variables (for shared channels 6&7)
+// Touch gesture coordination variables for petting detection
 static bool is_sliding_detected = false;           // True when sliding is detected
 static touch_slider_handle_t touch_slider_handle = NULL;
+static int petting_count = 0;                      // Count of petting gestures
 
 static void touch_slider_callback(touch_slider_handle_t handle, touch_slider_event_t event, int32_t data, void *cb_arg)
 {
-    const char *TAG = "TOUCH_VOLUME";
+    const char *TAG = "TOUCH_PETTING";
     uint32_t current_time = esp_timer_get_time() / 1000;
 
     switch (event) {
-    // We ignore POSITION events to avoid conflicts with button system
+    // Monitor POSITION events and treat continuous movement as petting
     case TOUCH_SLIDER_EVENT_POSITION:
-        ESP_LOGD(TAG, "Position event ignored to prevent button conflicts");
+        ESP_LOGD(TAG, "Position event: %d (position tracking)", data);
+        // Just track position changes, don't trigger actions here to avoid callback overload
         break;
 
     case TOUCH_SLIDER_EVENT_RIGHT_SWIPE:
-        // Swipe events indicate definite sliding
+        // Swipe events indicate definite petting
         if (!is_sliding_detected) {
             is_sliding_detected = true;
-            ESP_LOGI(TAG, "Swipe detected, taking control from buttons");
+            ESP_LOGI(TAG, "Petting gesture detected, taking control from buttons");
         }
 
-        ESP_LOGI(TAG, "Right swipe - Volume up");
-        current_volume += 10;  // Smaller increment for finer control
-        if (current_volume > 100) {
-            current_volume = 100;
-        }
-        // bsp_extra_codec_volume_set(current_volume, NULL);
-
-
+        ESP_LOGI(TAG, "Right swipe - Petting detected");
+        petting_count++;
+        
+        // 增加触摸计数（抚摸事件）
+        increment_touch_count();
+        
+        // 播放喵叫声音
+        ESP_LOGI(TAG, "Playing meowing sound for petting gesture");
+        // 这里需要通过全局方式访问AI_Buddy，或者通过回调函数
+        // 暂时使用直接播放音频文件的方式
+        audio_prompt_play_with_block("file://spiffs/meowing.mp3", 3000);
+        
         break;
 
     case TOUCH_SLIDER_EVENT_LEFT_SWIPE:
-        // Swipe events indicate definite sliding
+        // Swipe events indicate definite petting
         if (!is_sliding_detected) {
             is_sliding_detected = true;
-            ESP_LOGI(TAG, "Swipe detected, taking control from buttons");
+            ESP_LOGI(TAG, "Petting gesture detected, taking control from buttons");
         }
 
-        ESP_LOGI(TAG, "Left swipe - Volume down");
-        current_volume -= 10;  // Smaller decrement for finer control
-        if (current_volume < 0) {
-            current_volume = 0;
-        }
-
+        ESP_LOGI(TAG, "Left swipe - Petting detected");
+        petting_count++;
+        
+        // 增加触摸计数（抚摸事件）
+        increment_touch_count();
+        
+        // 播放喵叫声音
+        ESP_LOGI(TAG, "Playing meowing sound for petting gesture");
+        audio_prompt_play_with_block("file://spiffs/cat-in-heat_1.mp3", 3000);
+        
         break;
 
     case TOUCH_SLIDER_EVENT_RELEASE:
-        ESP_LOGI(TAG, "Touch released, sliding_detected: %s",
-                 is_sliding_detected ? "YES" : "NO");
+        ESP_LOGI(TAG, "Touch released, sliding_detected: %s, petting_count: %d",
+                 is_sliding_detected ? "YES" : "NO", petting_count);
 
-        // If sliding was detected, show final volume
-        if (is_sliding_detected) {
-            ESP_LOGI(TAG, "Final volume: %d%%", current_volume);
+        // If petting was detected, report the event
+        if (is_sliding_detected && petting_count > 0) {
+            ESP_LOGI(TAG, "Petting session completed with %d gestures", petting_count);
+            
+            // 上报抚摸事件到云端
+            if (status_report_is_connected()) {
+                status_report_send_now();
+                ESP_LOGI(TAG, "📤 Immediate status report sent after petting session");
+            }
         } else {
-            // No sliding detected - let button system handle this as a tap
-            ESP_LOGI(TAG, "No sliding detected, button system will handle this touch");
+            // No petting detected - let button system handle this as a tap
+            ESP_LOGI(TAG, "No petting detected, button system will handle this touch");
         }
 
         // Reset gesture state
         is_sliding_detected = false;
+        petting_count = 0;
         break;
 
     default:
@@ -163,23 +184,23 @@ static void touch_slider_task(void *pvParameters)
 // Initialize touch volume control
 static esp_err_t init_touch_slider(void)
 {
-    // Touch slider configuration - sharing channels 6&7 with button system
-    float threshold[] = {0.015f, 0.015f};  // Touch thresholds for each channel
+    // Touch slider configuration - stable parameters for petting detection
+    float threshold[] = {0.015f, 0.015f};  // Moderate thresholds for stable detection
     uint32_t channel_num = sizeof(touch_channel_list) / sizeof(touch_channel_list[0]);
 
-    // Configure touch slider for swipe-only volume control
+    // Configure touch slider for petting gesture detection
     touch_slider_config_t config = {
         .channel_num = channel_num,
         .channel_list = touch_channel_list,
         .channel_threshold = threshold,
         .channel_gold_value = NULL,
-        .debounce_times = 1,            // Reduced debounce for faster response
-        .filter_reset_times = 2,        // Reduced for faster response
-        .position_range = 100,          // Simple volume range 0-100
-        .calculate_window = 2,
-        .swipe_threshold = 4.0f,       // Lower threshold for easier swipe detection
-        .swipe_hysterisis = 2.0f,      // Lower hysteresis for better responsiveness
-        .swipe_alpha = 0.3f,            // Slightly less smoothing for more responsive swipes
+        .debounce_times = 2,            // Stable debounce for reliable operation
+        .filter_reset_times = 3,        // Adequate reset time for stability
+        .position_range = 100,          // Position range for petting detection
+        .calculate_window = 2,          // Stable calculation window
+        .swipe_threshold = 3.0f,       // Moderate threshold for reliable detection
+        .swipe_hysterisis = 1.5f,      // Balanced hysteresis for stability
+        .swipe_alpha = 0.4f,            // Balanced responsiveness
         .skip_lowlevel_init = true,     // Use existing lowlevel init from touch buttons
     };
 
