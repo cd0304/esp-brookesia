@@ -829,3 +829,16 @@ esp_err_t coze_chat_submit_tool_outputs(const std::string &tool_call_id, const s
     
     return ret;
 }
+
+esp_coze_chat_handle_t coze_chat_get_handle(void)
+{
+    ESP_UTILS_LOG_TRACE_GUARD();
+    
+    std::lock_guard lock(coze_chat.chat_mutex);
+    
+    if (coze_chat.chat && coze_chat.chat_start && coze_chat.websocket_connected) {
+        return coze_chat.chat;
+    }
+    
+    return NULL;
+}

@@ -511,7 +511,7 @@ bool system_init()
                     
                     // 播放愤怒的猫叫声音
                     ESP_UTILS_LOGI("😾 Playing angry cat sound for dizzy state");
-                    audio_prompt_play_with_block("file://spiffs/cat_angry.mp3", 3000);
+                    audio_prompt_play_with_block("file://spiffs/cat-in-heat_3.mp3", 3000);
                 }
             }
         }

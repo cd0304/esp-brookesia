@@ -8,12 +8,14 @@
 #include "esp_lib_utils.h"
 #include "esp_websocket_client.h"
 #include "esp_timer.h"
+#include "esp_random.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "cJSON.h"
 #include <string.h>
 #include "esp_brookesia_speaker_ai_buddy.hpp"
 #include "agent/audio_processor.h"
+#include "agent/esp_brookesia_ai_agent.hpp"
 
 #ifdef ESP_UTILS_LOG_TAG
 #   undef ESP_UTILS_LOG_TAG
@@ -21,6 +23,7 @@
 #define ESP_UTILS_LOG_TAG "StatusReport"
 
 using namespace esp_brookesia::systems::speaker;
+using namespace esp_brookesia::ai_framework;
 
 // WebSocket客户端句柄
 static esp_websocket_client_handle_t g_ws_client = NULL;
@@ -310,6 +313,157 @@ static void handle_websocket_command(char* data, int data_len)
                 } else {
                     send_command_response(command, false, strlen(error_msg) > 0 ? error_msg : "Unknown audio playback error");
                 }
+            }
+        }
+        
+    } else if (strcmp(command, "start_chat") == 0) {
+        // 启动AI对话命令
+        auto ai_buddy = AI_Buddy::requestInstance();
+        auto _agent = Agent::requestInstance();
+        
+        if (!ai_buddy || !_agent) {
+            send_command_response(command, false, "AI_Buddy or Agent instance not available");
+            ESP_UTILS_LOGE("❌ Command failed: start_chat - AI_Buddy or Agent not available");
+        } else if (ai_buddy->isPause()) {
+            send_command_response(command, false, "AI_Buddy is paused");
+            ESP_UTILS_LOGE("❌ Command failed: start_chat - AI_Buddy is paused");
+        } else {
+            bool success = false;
+            char success_msg[256] = {0};
+            
+            // 获取可选的text参数
+            cJSON *text_item = cJSON_GetObjectItem(json, "text");
+            const char* text_content = NULL;
+            if (text_item && cJSON_IsString(text_item)) {
+                text_content = cJSON_GetStringValue(text_item);
+                ESP_UTILS_LOGI("📝 Text content to send: %s", text_content);
+            }
+            
+            // 检查AI对话状态
+            if (_agent->hasChatState(Agent::ChatState::ChatStateStarted)) {
+                if (_agent->isChatState(Agent::ChatState::ChatStateSlept)) {
+                    // 如果AI处于睡眠状态，唤醒它
+                    ESP_UTILS_LOGI("🤖 AI is sleeping, waking up...");
+                    audio_gmf_trigger_wakeup();
+                    success = true;
+                    snprintf(success_msg, sizeof(success_msg), "AI chat woken up successfully");
+                    ESP_UTILS_LOGI("✅ Command executed: start_chat - AI woken up");
+                } else if (ai_buddy->isSpeaking()) {
+                    // 如果AI正在说话，中断并重新开始
+                    ESP_UTILS_LOGI("🤖 AI is speaking, interrupting and restarting...");
+                    coze_chat_response_signal();
+                    coze_chat_app_interrupt();
+                    success = true;
+                    snprintf(success_msg, sizeof(success_msg), "AI chat interrupted and restarted successfully");
+                    ESP_UTILS_LOGI("✅ Command executed: start_chat - AI interrupted and restarted");
+                } else {
+                    // AI已经处于活跃状态
+                    ESP_UTILS_LOGI("🤖 AI is already active, triggering response...");
+                    coze_chat_response_signal();
+                    success = true;
+                    snprintf(success_msg, sizeof(success_msg), "AI chat response triggered successfully");
+                    ESP_UTILS_LOGI("✅ Command executed: start_chat - AI response triggered");
+                }
+            } else {
+                // AI对话未启动，尝试启动
+                ESP_UTILS_LOGI("🤖 AI chat not started, attempting to start...");
+                // 这里可以添加启动AI对话的逻辑
+                // 由于没有直接的启动函数，我们触发响应信号来激活
+                coze_chat_response_signal();
+                success = true;
+                snprintf(success_msg, sizeof(success_msg), "AI chat start attempted (may need initialization)");
+                ESP_UTILS_LOGI("✅ Command executed: start_chat - AI start attempted");
+            }
+            
+            // 如果有text参数，在启动AI对话后发送文字内容
+            if (success && text_content && strlen(text_content) > 0) {
+                ESP_UTILS_LOGI("📤 Sending text content to AI: %s", text_content);
+                
+                // 延迟更长时间确保AI对话和WebSocket连接已经完全建立
+                ESP_UTILS_LOGI("⏳ Waiting for AI chat session to be fully established...");
+                vTaskDelay(pdMS_TO_TICKS(3000)); // 延迟3秒
+                
+                // 再次检查chat状态，确保连接已建立
+                int retry_count = 0;
+                const int max_retries = 5;
+                while (retry_count < max_retries) {
+                    esp_coze_chat_handle_t test_handle = coze_chat_get_handle();
+                    if (test_handle) {
+                        ESP_UTILS_LOGI("✅ Chat session is ready, proceeding to send message");
+                        break;
+                    } else {
+                        retry_count++;
+                        ESP_UTILS_LOGW("⚠️  Chat session not ready, retrying... (%d/%d)", retry_count, max_retries);
+                        vTaskDelay(pdMS_TO_TICKS(1000)); // 每次重试等待1秒
+                    }
+                }
+                
+                // 只有在会话建立成功时才发送消息
+                if (retry_count < max_retries) {
+                    // 创建conversation.message.create事件
+                    cJSON *event_json = cJSON_CreateObject();
+                if (event_json) {
+                    // 生成唯一的事件ID
+                    static int event_counter = 0;
+                    char event_id[32];
+                    snprintf(event_id, sizeof(event_id), "%d%d%d", (int)(esp_timer_get_time() / 1000), (int)(esp_random() % 10000), ++event_counter);
+                    
+                    cJSON_AddStringToObject(event_json, "id", event_id);
+                    cJSON_AddStringToObject(event_json, "event_type", "conversation.message.create");
+                    
+                    // 创建data对象
+                    cJSON *data_obj = cJSON_CreateObject();
+                    if (data_obj) {
+                        cJSON_AddStringToObject(data_obj, "role", "user");
+                        cJSON_AddStringToObject(data_obj, "content_type", "text");
+                        cJSON_AddStringToObject(data_obj, "content", text_content);
+                        cJSON_AddItemToObject(event_json, "data", data_obj);
+                        
+                        // 转换为JSON字符串
+                        char *json_str = cJSON_PrintUnformatted(event_json);
+                        if (json_str) {
+                            ESP_UTILS_LOGI("📤 Sending conversation.message.create event: %s", json_str);
+                            
+                            // 获取chat句柄并发送自定义数据到AI平台
+                            esp_coze_chat_handle_t chat_handle = coze_chat_get_handle();
+                            esp_err_t send_result = ESP_FAIL;
+                            
+                            if (chat_handle) {
+                                send_result = esp_coze_chat_send_customer_data(chat_handle, json_str);
+                            } else {
+                                ESP_UTILS_LOGE("❌ Chat handle not available - chat may not be started or connected");
+                            }
+                            if (send_result == ESP_OK) {
+                                ESP_UTILS_LOGI("✅ Text content sent to AI successfully");
+                                snprintf(success_msg, sizeof(success_msg), "AI chat started and text sent successfully");
+                            } else {
+                                ESP_UTILS_LOGE("❌ Failed to send text content to AI: %s", esp_err_to_name(send_result));
+                                snprintf(success_msg, sizeof(success_msg), "AI chat started but failed to send text");
+                            }
+                            
+                            free(json_str);
+                        } else {
+                            ESP_UTILS_LOGE("❌ Failed to create JSON string for text content");
+                        }
+                    } else {
+                        ESP_UTILS_LOGE("❌ Failed to create data object for text content");
+                    }
+                    
+                    cJSON_Delete(event_json);
+                } else {
+                    ESP_UTILS_LOGE("❌ Failed to create event JSON for text content");
+                }
+                } else {
+                    ESP_UTILS_LOGE("❌ Chat session failed to establish after %d retries", max_retries);
+                    snprintf(success_msg, sizeof(success_msg), "AI chat started but session not established for text sending");
+                }
+            }
+            
+            if (success) {
+                send_command_response(command, true, success_msg);
+            } else {
+                send_command_response(command, false, "Failed to start AI chat");
+                ESP_UTILS_LOGE("❌ Command failed: start_chat - unknown error");
             }
         }
         

@@ -8,6 +8,7 @@
 
 #include <string>
 #include "esp_err.h"
+#include "esp_coze_chat.h"
 #include "boost/signals2/signal.hpp"
 
 #define COZE_CHAT_ERROR_CODE_INSUFFICIENT_CREDITS_BALANCE_1 (4027)
@@ -73,6 +74,12 @@ void coze_chat_app_interrupt(void);
  * @return ESP_OK on success, ESP_FAIL on failure
  */
 esp_err_t coze_chat_submit_tool_outputs(const std::string &tool_call_id, const std::string &output);
+
+/**
+ * @brief Get the current chat handle for sending custom data
+ * @return The chat handle if available, NULL otherwise
+ */
+esp_coze_chat_handle_t coze_chat_get_handle(void);
 
 /**
  * @brief Get current tool call ID for result submission
